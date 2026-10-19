@@ -1,5 +1,5 @@
 # ENTRECALLES
-![ENTRECALLES Logo](./logo.jpg)
+<img src="./entrecalles_favicon.jpg" alt="Logo de ENTRECALLES" width="200">
 Aplicaciòn prototipo para asignatura de Emprendedores.
 
 ###Colaboradores
