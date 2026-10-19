@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ENTRECALLES - Apan, Hidalgo</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --verde:#2ecc71; --amarillo:#f1c40f; --rojo:#e74c3c;
+    --bg:#0f172a; --panel:#1e293b; --texto:#e2e8f0; --acento:#38bdf8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; font-family:system-ui, sans-serif;}
+  body{background:var(--bg); color:var(--texto); height:100vh; overflow:hidden;}
+  #app{display:grid; grid-template-columns:340px 1fr; height:100vh;}
+
+  #sidebar{background:var(--panel); padding:16px; overflow-y:auto; border-right:1px solid #334155;}
+  #sidebar h1{font-size:1.4rem; color:var(--acento); margin-bottom:4px; letter-spacing:1px;}
+  #sidebar .sub{font-size:.75rem; color:#94a3b8; margin-bottom:16px;}
+  .section-title{font-size:.75rem; text-transform:uppercase; color:#94a3b8; margin:16px 0 8px; letter-spacing:1px;}
+  .btn{width:100%; padding:10px; border:none; border-radius:8px; background:#334155; color:var(--texto); cursor:pointer; margin-bottom:6px; font-size:.9rem; transition:.2s;}
+  .btn:hover{background:#475569;}
+  .btn.active{background:var(--acento); color:#0f172a; font-weight:bold;}
+  .btn.peligro{background:var(--rojo); color:#fff; font-weight:bold;}
+  .btn.peligro:hover{background:#c0392b;}
+  .btn.exito{background:var(--verde); color:#0f172a; font-weight:bold;}
+
+  .cuenta-card{background:#0f172a; border:1px solid #334155; border-radius:10px; padding:10px; margin-top:8px; font-size:.8rem;}
+  .cuenta-card strong{color:var(--acento);}
+  .badge{display:inline-block; padding:2px 8px; border-radius:99px; font-size:.7rem; font-weight:bold; margin-left:4px;}
+  .badge.v{background:var(--verde); color:#0f172a;}
+  .badge.a{background:var(--amarillo); color:#0f172a;}
+  .badge.r{background:var(--rojo); color:#fff;}
+
+  .toggle{display:flex; align-items:center; justify-content:space-between; padding:8px 0; font-size:.85rem; border-bottom:1px solid #334155;}
+  .toggle input{accent-color:var(--acento); width:18px; height:18px;}
+
+  .contacto{display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:.8rem; border-bottom:1px dashed #334155;}
+  .contacto button{background:var(--acento); border:none; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:.75rem;}
+
+  /* Panel dinámico por cuenta */
+  #panelCuenta{margin-top:12px; padding:12px; background:#0f172a; border:1px solid var(--acento); border-radius:10px; font-size:.82rem; display:none;}
+  #panelCuenta h4{color:var(--acento); margin-bottom:8px; font-size:.9rem;}
+  #panelCuenta .item{padding:6px 0; border-bottom:1px dashed #334155;}
+  #panelCuenta .item:last-child{border-bottom:none;}
+  #panelCuenta select,#panelCuenta textarea,#panelCuenta input{
+    width:100%; background:#1e293b; color:var(--texto); border:1px solid #334155;
+    border-radius:6px; padding:6px; margin:4px 0; font-size:.8rem; font-family:inherit;
+  }
+  #panelCuenta textarea{resize:vertical; min-height:60px;}
+
+  #map{height:100vh; width:100%; background:#0b1220;}
+  .leaflet-container{background:#0b1220;}
+
+  #panelInfo{position:absolute; top:16px; right:16px; width:300px; background:var(--panel); border:1px solid #334155; border-radius:12px; padding:14px; z-index:1000; box-shadow:0 8px 24px rgba(0,0,0,.5); font-size:.85rem;}
+  #panelInfo h3{color:var(--acento); font-size:.95rem; margin-bottom:8px;}
+  .semaforo{display:flex; gap:6px; margin:8px 0;}
+  .semaforo div{flex:1; height:8px; border-radius:4px;}
+  .s-verde{background:var(--verde);}
+  .s-amarillo{background:var(--amarillo);}
+  .s-rojo{background:var(--rojo);}
+
+  #modalPeligro{position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:2000;}
+  #modalPeligro .caja{background:var(--rojo); color:#fff; padding:32px; border-radius:16px; text-align:center; max-width:400px;}
+  #modalPeligro h2{font-size:2rem; margin-bottom:8px; animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+  #modalPeligro button{margin-top:16px; padding:12px 24px; border:none; border-radius:8px; background:#fff; color:var(--rojo); font-weight:bold; cursor:pointer; font-size:1rem;}
+
+  #toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--panel); border:1px solid var(--acento); color:var(--texto); padding:12px 24px; border-radius:8px; opacity:0; transition:.3s; z-index:3000; font-size:.9rem; max-width:90%;}
+  #toast.show{opacity:1;}
+
+  @media(max-width:768px){
+    #app{grid-template-columns:1fr;}
+    #sidebar{position:absolute; z-index:1500; height:100vh; transform:translateX(-100%); transition:.3s;}
+    #sidebar.open{transform:translateX(0);}
+    #btnMenu{display:block; position:absolute; top:16px; left:16px; z-index:1600;}
+    #panelInfo{width:260px; top:60px;}
+  }
+  #btnMenu{display:none; background:var(--acento); border:none; border-radius:8px; padding:10px; font-weight:bold; cursor:pointer;}
+</style>
+</head>
+<body>
+
+<button id="btnMenu" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+
+<div id="app">
+  <aside id="sidebar">
+    <h1>ENTRECALLES</h1>
+    <p class="sub">Prototipo · Apan, Hidalgo</p>
+
+    <div class="section-title">Cuenta activa</div>
+    <button class="btn active" data-cuenta="individuo" onclick="cambiarCuenta('individuo')">👤 Individuo</button>
+    <button class="btn" data-cuenta="apoyo" onclick="cambiarCuenta('apoyo')">🤝 Individuo de Apoyo</button>
+    <button class="btn" data-cuenta="autoridad" onclick="cambiarCuenta('autoridad')">🛡️ Autoridad</button>
+
+    <div class="cuenta-card" id="infoCuenta"></div>
+
+    <!-- Panel dinámico según cuenta -->
+    <div id="panelCuenta"></div>
+
+    <div class="section-title">Capas del mapa</div>
+    <div class="toggle"><span>🚦 Semáforo de peligro</span><input type="checkbox" id="capaSemaforo" checked></div>
+    <div class="toggle"><span>👥 Zonas concurridas</span><input type="checkbox" id="capaConcurrencia" checked></div>
+    <div class="toggle"><span>💡 Alumbrado público</span><input type="checkbox" id="capaAlumbrado"></div>
+    <div class="toggle"><span>🏥 Zonas de seguridad</span><input type="checkbox" id="capaSeguridad" checked></div>
+
+    <div class="section-title">Contactos de seguridad</div>
+    <div id="listaContactos"></div>
+
+    <div class="section-title">Emergencia</div>
+    <button class="btn peligro" onclick="activarPeligro()">🚨 MODO PELIGRO</button>
+    <p style="font-size:.7rem; color:#94a3b8; margin-top:6px;">Envía ubicación + SMS a contactos. Atajo: tecla <kbd>P</kbd> ×3.</p>
+
+    <div class="section-title">Herramientas</div>
+    <button class="btn exito" onclick="trazarRutaSegura()">🧭 Ruta más segura</button>
+    <button class="btn" onclick="centrarMapa()">📍 Mi ubicación</button>
+  </aside>
+
+  <div id="map"></div>
+
+  <div id="panelInfo">
+    <h3>📍 Zona seleccionada</h3>
+    <p id="zonaNombre">Toca una zona del mapa</p>
+    <div class="semaforo">
+      <div class="s-verde" title="Segura"></div>
+      <div class="s-amarillo" title="Precaución"></div>
+      <div class="s-rojo" title="Insegura"></div>
+    </div>
+    <p id="zonaDetalle" style="color:#94a3b8; font-size:.8rem;">Nivel de peligro, alumbrado y concurrencia aparecerán aquí.</p>
+  </div>
+</div>
+
+<div id="modalPeligro">
+  <div class="caja">
+    <h2>🚨 ALERTA ACTIVADA</h2>
+    <p>Ubicación enviada a tus contactos de seguridad.</p>
+    <p style="font-size:.8rem; margin-top:8px; opacity:.9;">SMS enviado a: <span id="destinatarios"></span></p>
+    <button onclick="desactivarPeligro()">Estoy a salvo</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   DATOS MOCK — Apan, Hidalgo
+   ============================================================ */
+const APAN = {lat:19.7086, lng:-98.4510};
+
+const ZONAS = [
+  {nombre:"Centro de Apan",           lat:19.7086, lng:-98.4510, peligro:"amarillo", alumbrado:true,  concurrencia:"alta"},
+  {nombre:"Jardín Municipal",         lat:19.7092, lng:-98.4502, peligro:"verde",    alumbrado:true,  concurrencia:"alta"},
+  {nombre:"Barrio La Concepción",     lat:19.7050, lng:-98.4540, peligro:"rojo",     alumbrado:false, concurrencia:"baja"},
+  {nombre:"Barrio San Francisco",     lat:19.7120, lng:-98.4480, peligro:"amarillo", alumbrado:true,  concurrencia:"media"},
+  {nombre:"Col. San Isidro",          lat:19.7005, lng:-98.4460, peligro:"rojo",     alumbrado:false, concurrencia:"baja"},
+  {nombre:"Col. Los Pinos",           lat:19.7150, lng:-98.4560, peligro:"verde",    alumbrado:true,  concurrencia:"media"},
+  {nombre:"Carretera Apan–Tlanalapa", lat:19.7180, lng:-98.4420, peligro:"amarillo", alumbrado:false, concurrencia:"baja"},
+  {nombre:"Unidad Deportiva Apan",    lat:19.7035, lng:-98.4485, peligro:"verde",    alumbrado:true,  concurrencia:"alta"},
+];
+
+const SEGURIDAD = [
+  {nombre:"Hospital General de Apan",        lat:19.7070, lng:-98.4525, tel:"911"},
+  {nombre:"Presidencia Municipal / Policía", lat:19.7088, lng:-98.4508, tel:"911"},
+  {nombre:"Centro de Salud Apan",            lat:19.7115, lng:-98.4470, tel:"911"},
+  {nombre:"Protección Civil Apan",           lat:19.7062, lng:-98.4495, tel:"911"},
+];
+
+const CONTACTOS = [
+  {nombre:"Mamá", tel:"771 123 4567"},
+  {nombre:"Carlos (Apoyo)", tel:"771 765 4321"},
+  {nombre:"911", tel:"911"},
+];
+
+/* Reportes simulados (para cuenta Autoridad) */
+let REPORTES = [
+  {id:1, zona:"Barrio La Concepción", tipo:"Falta de alumbrado", gravedad:"alta",  fecha:"Hace 2 h", estado:"Pendiente"},
+  {id:2, zona:"Col. San Isidro",      tipo:"Zona insegura",      gravedad:"alta",  fecha:"Hace 5 h", estado:"En revisión"},
+  {id:3, zona:"Carretera Apan–Tlanalapa", tipo:"Iluminación intermitente", gravedad:"media", fecha:"Ayer", estado:"Pendiente"},
+  {id:4, zona:"Centro de Apan",       tipo:"Robo reportado",     gravedad:"alta",  fecha:"Ayer", estado:"Atendido"},
+];
+
+/* Alertas simuladas de apoyo */
+const ALERTAS_APOYO = [
+  {zona:"Barrio La Concepción", distancia:"320 m", hora:"Hace 3 min"},
+  {zona:"Col. San Isidro",      distancia:"780 m", hora:"Hace 12 min"},
+];
+
+const CUENTAS = {
+  individuo:{nombre:"Individuo", desc:"Persona común. Acceso a mapa, rutas seguras y modo peligro.", badge:"v"},
+  apoyo:{nombre:"Individuo de Apoyo", desc:"Colaborador con aptitudes. Recibe alertas cercanas y puede asistir.", badge:"a"},
+  autoridad:{nombre:"Autoridad", desc:"Instituciones. Visualiza reportes globales y zonas críticas.", badge:"r"}
+};
+
+/* ============================================================
+   MAPA  →  Esri World Imagery centrado en Apan
+   ============================================================ */
+const map = L.map('map', {zoomControl:true}).setView([APAN.lat, APAN.lng], 15);
+
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution:'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
+  maxZoom: 19
+}).addTo(map);
+
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+  attribution:'© Esri', maxZoom: 19, opacity: 0.85
+}).addTo(map);
+
+const colores = {verde:"#2ecc71", amarillo:"#f1c40f", rojo:"#e74c3c"};
+let capas = {semaforo:L.layerGroup(), concurrencia:L.layerGroup(), alumbrado:L.layerGroup(), seguridad:L.layerGroup()};
+Object.values(capas).forEach(c=>c.addTo(map));
+
+// Semáforo de peligro
+ZONAS.forEach(z=>{
+  const circle = L.circle([z.lat,z.lng], {
+    radius:180, color:"#ffffff", weight:2,
+    fillColor:colores[z.peligro], fillOpacity:.45
+  }).bindPopup(`<b>${z.nombre}</b><br>Peligro: ${z.peligro}<br>Alumbrado: ${z.alumbrado?"Sí":"No"}<br>Concurrencia: ${z.concurrencia}`);
+  circle.on('click', ()=> mostrarZona(z));
+  circle.addTo(capas.semaforo);
+});
+
+// Concurrencia
+ZONAS.filter(z=>z.concurrencia==="alta").forEach(z=>{
+  L.circle([z.lat,z.lng], {radius:280, color:"#38bdf8", dashArray:"8 8", fill:false, weight:3})
+   .bindPopup(`Zona concurrida: ${z.nombre}`).addTo(capas.concurrencia);
+});
+
+// Alumbrado
+ZONAS.filter(z=>z.alumbrado).forEach(z=>{
+  L.circleMarker([z.lat,z.lng], {radius:7, color:"#ffffff", weight:2, fillColor:"#f1c40f", fillOpacity:1})
+   .bindPopup(`💡 Alumbrado: ${z.nombre}`).addTo(capas.alumbrado);
+});
+
+// Zonas de seguridad
+SEGURIDAD.forEach(s=>{
+  L.marker([s.lat,s.lng]).bindPopup(`🏥 <b>${s.nombre}</b><br>Tel: ${s.tel}`).addTo(capas.seguridad);
+});
+
+/* ============================================================
+   UI GENERAL
+   ============================================================ */
+function mostrarZona(z){
+  document.getElementById('zonaNombre').textContent = z.nombre;
+  const nivel = z.peligro==="verde"?"✅ Segura":z.peligro==="amarillo"?"⚠️ Precaución":"⛔ Insegura";
+  document.getElementById('zonaDetalle').innerHTML =
+    `Nivel: ${nivel}<br>Alumbrado: ${z.alumbrado?"Sí":"No"}<br>Concurrencia: ${z.concurrencia}`;
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+/* ============================================================
+   PANELES POR CUENTA
+   ============================================================ */
+function cambiarCuenta(id){
+  document.querySelectorAll('[data-cuenta]').forEach(b=>b.classList.toggle('active', b.dataset.cuenta===id));
+  const c = CUENTAS[id];
+  document.getElementById('infoCuenta').innerHTML =
+    `<strong>${c.nombre}</strong> <span class="badge ${c.badge}">${c.nombre.split(' ')[0]}</span><br><span style="color:#94a3b8">${c.desc}</span>`;
+
+  const panel = document.getElementById('panelCuenta');
+  panel.style.display = 'block';
+
+  if(id === 'individuo'){
+    panel.innerHTML = `
+      <h4>📝 Reportar zona</h4>
+      <select id="repZona">
+        ${ZONAS.map(z=>`<option value="${z.nombre}">${z.nombre}</option>`).join('')}
+      </select>
+      <select id="repTipo">
+        <option>Falta de alumbrado</option>
+        <option>Zona insegura</option>
+        <option>Iluminación intermitente</option>
+        <option>Robo / asalto</option>
+        <option>Otro</option>
+      </select>
+      <select id="repGravedad">
+        <option value="baja">Gravedad baja</option>
+        <option value="media">Gravedad media</option>
+        <option value="alta">Gravedad alta</option>
+      </select>
+      <textarea id="repDesc" placeholder="Describe lo que viste (opcional)"></textarea>
+      <button class="btn exito" onclick="enviarReporte()">Enviar reporte</button>
+    `;
+  }
+
+  if(id === 'apoyo'){
+    panel.innerHTML = `
+      <h4>🔔 Alertas cercanas</h4>
+      ${ALERTAS_APOYO.map(a=>`
+        <div class="item">
+          <b>${a.zona}</b><br>
+          <span style="color:#94a3b8">${a.distancia} · ${a.hora}</span><br>
+          <button class="btn" style="margin-top:6px;background:var(--verde);color:#0f172a;font-weight:bold;" onclick="toast('Acudiendo a ${a.zona}...')">Acudir</button>
+        </div>
+      `).join('')}
+      <button class="btn" onclick="toast('Marcado como disponible para apoyar')">✅ Estoy disponible</button>
+    `;
+  }
+
+  if(id === 'autoridad'){
+    const rojas = ZONAS.filter(z=>z.peligro==="rojo").length;
+    const pendientes = REPORTES.filter(r=>r.estado==="Pendiente").length;
+    panel.innerHTML = `
+      <h4>🛡️ Panel Autoridad</h4>
+      <div class="item"><b>Zonas críticas:</b> ${rojas} <span class="badge r">rojo</span></div>
+      <div class="item"><b>Reportes pendientes:</b> ${pendientes}</div>
+      <div class="item"><b>Total reportes:</b> ${REPORTES.length}</div>
+      <h4 style="margin-top:12px;">📋 Reportes recientes</h4>
+      <div id="listaReportes"></div>
+    `;
+    renderReportes();
+  }
+
+  toast(`Cuenta cambiada: ${c.nombre}`);
+}
+
+function renderReportes(){
+  const cont = document.getElementById('listaReportes');
+  if(!cont) return;
+  cont.innerHTML = REPORTES.map(r=>{
+    const color = r.estado==="Atendido"?"var(--verde)":r.estado==="En revisión"?"var(--amarillo)":"var(--rojo)";
+    return `<div class="item">
+      <b>#${r.id} · ${r.zona}</b><br>
+      <span style="color:#94a3b8;font-size:.75rem;">${r.tipo} · ${r.fecha}</span><br>
+      <span style="color:${color};font-size:.75rem;font-weight:bold;">${r.estado}</span>
+      ${r.estado!=="Atendido"?`<button class="btn" style="margin-top:4px;padding:4px;font-size:.7rem;" onclick="marcarAtendido(${r.id})">Marcar atendido</button>`:''}
+    </div>`;
+  }).join('');
+}
+
+function marcarAtendido(id){
+  const r = REPORTES.find(x=>x.id===id);
+  if(r){ r.estado = "Atendido"; renderReportes(); toast(`Reporte #${id} marcado como atendido`); }
+}
+
+/* Enviar reporte (cuenta Individuo) */
+function enviarReporte(){
+  const zona = document.getElementById('repZona').value;
+  const tipo = document.getElementById('repTipo').value;
+  const gravedad = document.getElementById('repGravedad').value;
+  const desc = document.getElementById('repDesc').value.trim();
+  const nuevo = {
+    id: REPORTES.length+1,
+    zona, tipo, gravedad,
+    fecha: "Ahora mismo",
+    estado: "Pendiente",
+    desc
+  };
+  REPORTES.push(nuevo);
+  toast(`✅ Reporte enviado para "${zona}" (${tipo})`);
+  document.getElementById('repDesc').value = '';
+  // si estamos en autoridad, refrescar
+  if(document.querySelector('[data-cuenta="autoridad"]').classList.contains('active')) renderReportes();
+}
+
+/* ============================================================
+   MODO PELIGRO
+   ============================================================ */
+function activarPeligro(){
+  document.getElementById('destinatarios').textContent = CONTACTOS.map(c=>c.nombre).join(', ');
+  document.getElementById('modalPeligro').style.display = 'flex';
+  toast('🚨 Alerta enviada con ubicación');
+}
+function desactivarPeligro(){
+  document.getElementById('modalPeligro').style.display = 'none';
+  toast('Alerta desactivada. Estás a salvo.');
+}
+
+let pCount=0, pTimer;
+document.addEventListener('keydown', e=>{
+  if(e.key.toLowerCase()==='p'){
+    pCount++;
+    clearTimeout(pTimer);
+    pTimer = setTimeout(()=>pCount=0, 800);
+    if(pCount>=3){activarPeligro(); pCount=0;}
+  }
+});
+
+/* ============================================================
+   CONTACTOS Y CAPAS
+   ============================================================ */
+const lista = document.getElementById('listaContactos');
+CONTACTOS.forEach(c=>{
+  const div = document.createElement('div');
+  div.className = 'contacto';
+  div.innerHTML = `<span>${c.nombre}<br><small style="color:#94a3b8">${c.tel}</small></span>
+                   <button onclick="toast('Llamando a ${c.nombre}...')">Llamar</button>`;
+  lista.appendChild(div);
+});
+
+document.getElementById('capaSemaforo').addEventListener('change', e=> e.target.checked?capas.semaforo.addTo(map):map.removeLayer(capas.semaforo));
+document.getElementById('capaConcurrencia').addEventListener('change', e=> e.target.checked?capas.concurrencia.addTo(map):map.removeLayer(capas.concurrencia));
+document.getElementById('capaAlumbrado').addEventListener('change', e=> e.target.checked?capas.alumbrado.addTo(map):map.removeLayer(capas.alumbrado));
+document.getElementById('capaSeguridad').addEventListener('change', e=> e.target.checked?capas.seguridad.addTo(map):map.removeLayer(capas.seguridad));
+
+/* ============================================================
+   RUTA SEGURA Y UBICACIÓN
+   ============================================================ */
+let rutaLayer = null;
+function trazarRutaSegura(){
+  if(rutaLayer) map.removeLayer(rutaLayer);
+  const seguras = ZONAS.filter(z=>z.peligro==="verde");
+  if(seguras.length<2){toast('No hay suficientes zonas seguras cercanas'); return;}
+  const puntos = seguras.map(z=>[z.lat,z.lng]);
+  rutaLayer = L.polyline(puntos, {color:"#2ecc71", weight:6, opacity:.9, dashArray:"10 6"}).addTo(map);
+  map.fitBounds(rutaLayer.getBounds(), {padding:[40,40]});
+  toast('Ruta segura trazada (zonas verdes)');
+}
+
+function centrarMapa(){
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      pos=>{ map.setView([pos.coords.latitude,pos.coords.longitude],16); toast('Ubicación centrada'); },
+      ()=>{ map.setView([APAN.lat,APAN.lng],15); toast('Usando centro de Apan por defecto'); }
+    );
+  } else { map.setView([APAN.lat,APAN.lng],15); toast('Geolocalización no disponible'); }
+}
+
+map.on('click', e=>{
+  let cercana=null, min=Infinity;
+  ZONAS.forEach(z=>{
+    const d = map.distance([z.lat,z.lng],[e.latlng.lat,e.latlng.lng]);
+    if(d<min){min=d; cercana=z;}
+  });
+  if(cercana && min<1200) mostrarZona(cercana);
+});
+
+/* Inicializar con cuenta Individuo */
+cambiarCuenta('individuo');
+</script>
+</body>
+</html>
