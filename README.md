@@ -23,6 +23,7 @@ Podriamos resumir en caracteristicas a la app en los siguientes puntos:
 
 Entre otras cosas.
 
+Con esto, es posible para el usuario elegir mejores rutas y sentirse más seguro.
 -------------
 Act. 19/10/2026
 Como parte de la conceptualización de la aplicación, se le pidio a la IA Deepseek, mediante la información anterior que generara un prototipo en HTML, que ha sido montado en este repositorio y moderadamente modificado. Ademas, el icono provisional fue generado por IA.
